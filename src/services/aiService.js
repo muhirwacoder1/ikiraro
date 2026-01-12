@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// TODO: Replace with environment variable import.meta.env.VITE_GEMINI_API_KEY
-const API_KEY = "";
+// Get API key from environment variable (set in .env file as VITE_GEMINI_API_KEY)
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 export const gradeMission = async (mission, answer) => {
     // Mock response if no key or for testing
@@ -23,7 +23,8 @@ export const gradeMission = async (mission, answer) => {
 
     try {
         const genAI = new GoogleGenerativeAI(API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        // Using gemini-2.0-flash - current stable model (free tier friendly!)
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const prompt = `
       You are an education AI for the IKIRARO platform. 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { gradeMission } from '../services/aiService';
 
 /*
   Active Micro-Mission View Component
@@ -11,16 +12,68 @@ export default function MicroMissionView({ mission, onBack, onSubmit }) {
         intervention: '',
         metrics: ''
     });
+    const [isGrading, setIsGrading] = useState(false);
+    const [gradeResult, setGradeResult] = useState(null);
+    const [showResults, setShowResults] = useState(false);
 
     const handleStepChange = (step, value) => {
         setSteps(prev => ({ ...prev, [step]: value }));
     };
 
-    const handleSubmit = () => {
-        if (onSubmit) {
-            onSubmit(steps);
+    const handleSubmit = async () => {
+        // Combine all steps into one answer
+        const combinedAnswer = `
+Analysis: ${steps.analysis}
+
+Strategic Intervention: ${steps.intervention}
+
+Success Metrics: ${steps.metrics}
+        `.trim();
+
+        if (!combinedAnswer || combinedAnswer.length < 50) {
+            alert('Please fill in all the steps before submitting.');
+            return;
+        }
+
+        setIsGrading(true);
+        setShowResults(true);
+
+        try {
+            const missionContext = mission?.title || "Akagera Park Water Imbalance - Analyze hydrological data and propose sustainable intervention";
+            const result = await gradeMission(missionContext, combinedAnswer);
+            setGradeResult(result);
+        } catch (error) {
+            console.error('Grading error:', error);
+            setGradeResult({
+                logic: 0,
+                knowledge: 0,
+                creativity: 0,
+                feedback: 'Error connecting to AI service. Please try again.'
+            });
+        } finally {
+            setIsGrading(false);
         }
     };
+
+    const handleCloseResults = () => {
+        setShowResults(false);
+        if (onSubmit && gradeResult) {
+            onSubmit({ steps, gradeResult });
+        }
+    };
+
+    const getScoreColor = (score) => {
+        if (score >= 80) return 'text-green-500';
+        if (score >= 60) return 'text-amber-500';
+        return 'text-red-500';
+    };
+
+    const getScoreBg = (score) => {
+        if (score >= 80) return 'bg-green-500';
+        if (score >= 60) return 'bg-amber-500';
+        return 'text-red-500';
+    };
+
 
     return (
         <div className="bg-background-light dark:bg-background-dark text-text-main dark:text-white font-display min-h-screen flex flex-col overflow-hidden">
@@ -284,6 +337,133 @@ export default function MicroMissionView({ mission, onBack, onSubmit }) {
                     </div>
                 </div>
             </div>
+
+            {/* AI Grading Results Modal */}
+            {showResults && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+                    {/* Modal */}
+                    <div className="relative w-full max-w-lg bg-white dark:bg-[#1a1d21] rounded-3xl shadow-2xl overflow-hidden animate-fade-in">
+                        {/* Header */}
+                        <div className="bg-gradient-to-br from-primary via-primary-dark to-deep-blue p-8 text-center relative overflow-hidden">
+                            <div className="absolute -right-10 -top-10 size-32 bg-white/10 rounded-full blur-2xl"></div>
+                            <div className="absolute -left-10 -bottom-10 size-24 bg-accent-gold/20 rounded-full blur-2xl"></div>
+
+                            {isGrading ? (
+                                <div className="relative z-10">
+                                    <div className="size-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+                                        <span className="material-symbols-outlined text-white text-3xl animate-spin">progress_activity</span>
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">Gemini AI is Grading...</h2>
+                                    <p className="text-white/70">Analyzing your solution</p>
+                                </div>
+                            ) : (
+                                <div className="relative z-10">
+                                    <div className="size-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-white text-3xl">auto_awesome</span>
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-white mb-2">AI Grading Complete!</h2>
+                                    <p className="text-white/70">Here's how you did</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Scores */}
+                        {!isGrading && gradeResult && (
+                            <div className="p-6 space-y-6">
+                                {/* Score Cards */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    {/* Logic */}
+                                    <div className="text-center">
+                                        <div className="relative size-20 mx-auto mb-2">
+                                            <svg className="w-full h-full -rotate-90">
+                                                <circle cx="40" cy="40" r="36" fill="none" stroke="#e5e7eb" strokeWidth="6" className="dark:stroke-gray-700" />
+                                                <circle cx="40" cy="40" r="36" fill="none" stroke="#1acbcb" strokeWidth="6"
+                                                    strokeDasharray={`${gradeResult.logic * 2.26} 226`}
+                                                    strokeLinecap="round" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className={`text-xl font-bold ${getScoreColor(gradeResult.logic)}`}>{gradeResult.logic}</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Logic</p>
+                                    </div>
+
+                                    {/* Knowledge */}
+                                    <div className="text-center">
+                                        <div className="relative size-20 mx-auto mb-2">
+                                            <svg className="w-full h-full -rotate-90">
+                                                <circle cx="40" cy="40" r="36" fill="none" stroke="#e5e7eb" strokeWidth="6" className="dark:stroke-gray-700" />
+                                                <circle cx="40" cy="40" r="36" fill="none" stroke="#8B5CF6" strokeWidth="6"
+                                                    strokeDasharray={`${gradeResult.knowledge * 2.26} 226`}
+                                                    strokeLinecap="round" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className={`text-xl font-bold ${getScoreColor(gradeResult.knowledge)}`}>{gradeResult.knowledge}</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Knowledge</p>
+                                    </div>
+
+                                    {/* Creativity */}
+                                    <div className="text-center">
+                                        <div className="relative size-20 mx-auto mb-2">
+                                            <svg className="w-full h-full -rotate-90">
+                                                <circle cx="40" cy="40" r="36" fill="none" stroke="#e5e7eb" strokeWidth="6" className="dark:stroke-gray-700" />
+                                                <circle cx="40" cy="40" r="36" fill="none" stroke="#F59E0B" strokeWidth="6"
+                                                    strokeDasharray={`${gradeResult.creativity * 2.26} 226`}
+                                                    strokeLinecap="round" />
+                                            </svg>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <span className={`text-xl font-bold ${getScoreColor(gradeResult.creativity)}`}>{gradeResult.creativity}</span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Creativity</p>
+                                    </div>
+                                </div>
+
+                                {/* Average Score */}
+                                <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-4 text-center border border-primary/20">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Overall Score</p>
+                                    <p className="text-3xl font-bold text-primary">
+                                        {Math.round((gradeResult.logic + gradeResult.knowledge + gradeResult.creativity) / 3)}
+                                        <span className="text-lg text-gray-400">/100</span>
+                                    </p>
+                                </div>
+
+                                {/* Feedback */}
+                                <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4 border border-gray-100 dark:border-white/10">
+                                    <div className="flex items-center gap-2 mb-2 text-primary">
+                                        <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                                        <h4 className="font-bold text-sm">Gemini AI Feedback</h4>
+                                    </div>
+                                    <p className="text-gray-600 dark:text-gray-300 text-sm font-body leading-relaxed">
+                                        {gradeResult.feedback}
+                                    </p>
+                                </div>
+
+                                {/* Points Earned */}
+                                <div className="flex items-center justify-center gap-3 py-2">
+                                    <span className="material-symbols-outlined text-accent-gold text-2xl">bolt</span>
+                                    <span className="text-lg font-bold text-deep-blue dark:text-white">
+                                        +{Math.round((gradeResult.logic + gradeResult.knowledge + gradeResult.creativity) / 3 * 5)} Purpose Points Earned!
+                                    </span>
+                                </div>
+
+                                {/* Close Button */}
+                                <button
+                                    onClick={handleCloseResults}
+                                    className="w-full py-3 rounded-xl bg-primary text-white font-bold hover:bg-primary-dark transition-colors"
+                                >
+                                    Continue
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
